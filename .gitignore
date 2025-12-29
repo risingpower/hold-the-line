@@ -1,0 +1,8 @@
+# Local database artifacts
+life_os.db
+life_os.db-wal
+life_os.db-shm
+
+# Python cache
+__pycache__/
+*.pyc
