@@ -6,6 +6,7 @@ from services.session_service import get_active_session, start_session, stop_ses
 from services.plan_service import get_plan_hit_rate, create_task, add_to_plan, get_daily_plan, set_completion
 from services.log_service import submit_daily_log, log_exists
 from services.db import get_connection
+from services.scoring_service import calculate_daily_score
 
 # --- CONFIG ---
 st.set_page_config(page_title="LIFE OS", page_icon="💀", layout="wide")
@@ -74,23 +75,34 @@ with st.sidebar:
 
 # --- MODE: HUD ---
 if mode == "HUD":
-    # 1. METRICS
+    # Fetch Latest Score
+    conn = get_connection()
+    # We use a raw query here for speed in the UI layer
+    score_row = pd.read_sql(f"SELECT * FROM daily_derived_latest WHERE date = '{st.session_state.today}'", conn)
+    
+    nps = score_row.iloc[0]['nps_score'] if not score_row.empty else 0.0
+    vessel = score_row.iloc[0]['score_vessel'] if not score_row.empty else "--"
+    resources = score_row.iloc[0]['score_resources'] if not score_row.empty else "--"
+    
+    # Determine Status Display
+    status_label = "WIN" if nps > 85 else ("HOLD" if nps > 50 else "FAIL")
+    status_color = "#00FF00" if status_label == "WIN" else ("#FFA500" if status_label == "HOLD" else "#FF0000")
+
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.markdown("### 🛡️ STATUS")
-        st.markdown("<div class='big-metric'>WIN</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='big-metric' style='color:{status_color}'>{status_label}</div>", unsafe_allow_html=True)
+        st.caption(f"NPS: {int(nps)}")
     with col2:
         st.markdown("### ⚡ ENGINE")
         hit_rate = get_plan_hit_rate(st.session_state.today)
         st.markdown(f"<div class='big-metric'>{hit_rate}%</div>", unsafe_allow_html=True)
     with col3:
         st.markdown("### 🔥 VITALITY")
-        st.markdown("<div class='big-metric'>--</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='big-metric'>{int(vessel) if vessel != '--' else '--'}</div>", unsafe_allow_html=True)
     with col4:
         st.markdown("### 💰 RESOURCES")
-        st.markdown("<div class='big-metric'>£--</div>", unsafe_allow_html=True)
-
-    st.divider()
+        st.markdown(f"<div class='big-metric'>£{int(resources) if resources != '--' else '--'}</div>", unsafe_allow_html=True)
 
     # 2. SESSION MANAGER
     active_session = get_active_session()
@@ -204,8 +216,13 @@ elif mode == "EVENING LOG":
             
             if st.form_submit_button("🔒 LOCK IN DAY"):
                 try:
+                    # 1. Submit the Immutable Log
                     submit_daily_log(st.session_state.today, weight, sleep, alcohol, spend, screen, notes)
-                    st.success("Day Locked. Data Immutable.")
+                    
+                    # 2. Trigger the Judge (Calculate Score immediately)
+                    calculate_daily_score(st.session_state.today)
+                    
+                    st.success("Day Locked & Scored. The Verdict is in.")
                     st.balloons()
                     st.rerun()
                 except Exception as e:
