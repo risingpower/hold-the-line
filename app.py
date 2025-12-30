@@ -119,7 +119,9 @@ inject_custom_css()
 
 # --- HELPER: FORMAT TIME ---
 def format_timestamp(ts):
-    if not ts: return "--"
+    # Handle NaN (Pandas standard for NULL) or 0
+    if pd.isna(ts) or ts == 0:
+        return "On-Going"
     return datetime.fromtimestamp(ts).strftime('%H:%M')
 
 # --- 3. INITIALIZATION ---
