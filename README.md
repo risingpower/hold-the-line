@@ -1,5 +1,7 @@
 # LIFE OS // HOLD THE LINE
 
+v0.1 Legacy. The Steel Thread MVP.
+
 > *"The database rejects the lie."*
 
 **Life OS** is a ruthless, high-integrity operating system for personal performance. It is not a to-do list. It is a feedback loop that forces you to confront reality.
